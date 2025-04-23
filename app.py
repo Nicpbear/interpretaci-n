@@ -7,8 +7,7 @@ from openai import OpenAI
 def encode_image(image_file):
     return base64.b64encode(image_file.getvalue()).decode("utf-8")
 
-
-# CONFIGURACIÓN DE PÁGINA
+# CONFIGURACIÓN DE LA PÁGINA
 st.set_page_config(
     page_title="🔍 Análisis de Imagen con IA",
     layout="centered",
@@ -17,27 +16,34 @@ st.set_page_config(
 
 # TÍTULO Y DESCRIPCIÓN
 st.title("🧠 Análisis de Imagen con GPT-4o")
-st.markdown("Sube una imagen y deja que la inteligencia artificial te diga lo que ve 👁️‍🗨️")
+st.markdown("Sube una imagen y deja que la inteligencia artificial describa lo que ve 👁️‍🗨️")
 
-# API KEY
-with st.sidebar:
-    st.markdown("### 🔐 Clave de OpenAI")
-    ke = st.text_input('Ingresa tu Clave de API de OpenAI:', type="password", help="Puedes obtenerla en https://platform.openai.com/account/api-keys")
-    if not ke:
-        st.warning("Por favor, ingresa tu clave de API.")
+# SECCIÓN PARA API KEY
+st.markdown("### 🔐 Ingresa tu Clave de OpenAI")
+ke = st.text_input(
+    'Clave de API de OpenAI:',
+    type="password",
+    help="Puedes obtener tu clave en https://platform.openai.com/account/api-keys"
+)
+
+# Guardar la clave en una variable de entorno
+if ke:
     os.environ['OPENAI_API_KEY'] = ke
+    api_key = ke
+else:
+    st.warning("Por favor, ingresa tu clave de API para continuar.")
+    api_key = None
 
-# Inicializar cliente OpenAI
-api_key = os.environ.get('OPENAI_API_KEY')
+# Inicializar cliente OpenAI si la clave fue ingresada
 if api_key:
     client = OpenAI(api_key=api_key)
 
-# SUBIR IMAGEN
-uploaded_file = st.file_uploader("📤 Sube tu imagen (JPG, PNG, JPEG)", type=["jpg", "png", "jpeg"])
+# SUBIDA DE IMAGEN
+uploaded_file = st.file_uploader("📤 Sube una imagen (JPG, PNG, JPEG)", type=["jpg", "png", "jpeg"])
 
-# Mostrar imagen cargada
+# Mostrar la imagen cargada
 if uploaded_file:
-    with st.expander("📷 Vista previa de la imagen", expanded=True):
+    with st.expander("📸 Vista previa de la imagen", expanded=True):
         st.image(uploaded_file, caption=uploaded_file.name, use_container_width=True)
 
 # CONTEXTO ADICIONAL
@@ -46,19 +52,23 @@ show_details = st.toggle("📝 ¿Deseas agregar contexto sobre la imagen?", valu
 if show_details:
     additional_details = st.text_area("✍️ Describe aquí cualquier detalle relevante sobre la imagen:", height=150)
 
-# BOTÓN DE ANÁLISIS
+# BOTÓN PARA ANALIZAR
 analyze_button = st.button("🚀 Analizar Imagen")
 
-# EJECUCIÓN DEL ANÁLISIS
+# ANALIZAR SI TODO ESTÁ LISTO
 if uploaded_file and api_key and analyze_button:
     with st.spinner("🧠 Analizando imagen..."):
         try:
+            # Codificar la imagen a base64
             base64_image = encode_image(uploaded_file)
+
+            # Construir el prompt inicial
             prompt_text = "Describe lo que ves en la imagen en español."
-            
+
             if show_details and additional_details:
                 prompt_text += f"\n\nContexto adicional del usuario:\n{additional_details}"
-            
+
+            # Crear los mensajes para la API de chat con imagen
             messages = [
                 {
                     "role": "user",
@@ -69,6 +79,7 @@ if uploaded_file and api_key and analyze_button:
                 }
             ]
 
+            # Solicitud a la API de OpenAI
             full_response = ""
             message_placeholder = st.empty()
             for completion in client.chat.completions.create(
@@ -80,14 +91,14 @@ if uploaded_file and api_key and analyze_button:
                 if completion.choices[0].delta.content:
                     full_response += completion.choices[0].delta.content
                     message_placeholder.markdown(full_response + "▌")
+
             message_placeholder.markdown(full_response)
-        
+
         except Exception as e:
             st.error(f"❌ Ocurrió un error: {e}")
 
-# MENSAJES DE ADVERTENCIA
+# ADVERTENCIAS SI FALTAN ELEMENTOS
 elif not uploaded_file and analyze_button:
-    st.warning("⚠️ Por favor, sube una imagen.")
+    st.warning("⚠️ Por favor, sube una imagen antes de analizar.")
 elif not api_key:
-    st.warning("🔑 Ingresa tu API key para comenzar.")
-
+    st.info("🔑 Ingresa tu clave de API para usar la aplicación.")
